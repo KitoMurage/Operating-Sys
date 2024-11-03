@@ -198,16 +198,7 @@ if (sequence_cmd) {
     }
 
     /* Parsing done. Execute the command. */
-    arguments[numargs] = 0;
-
-    if (exec(arguments[0], arguments) < 0) {
-        fprintf(2, "Command execution failed: %s\n", arguments[0]);
-        for (int k = 0; k < numargs; k++){
-          fprintf(2, "Arg[%d]: %s\n", k, arguments[k]);
-        }
-	exit(1);
-    }
-
+    
    /* if this command is a CD command, write arguments to the pcp pipe
    and exit with '2' to tell the parent process about this*/
 
