@@ -222,10 +222,10 @@ if (sequence_cmd) {
             int p[2];
             pipe(p);
             if (fork() == 0) {
-                //close(p[0]);
-                close(1); 
+		close(1); 
                 dup(p[1]); 
                 close(p[0]);
+                close(p[1]);
                 exec(arguments[0], arguments);
                 printf("exec %s failed\n", arguments[0]);
                 exit(1);
@@ -236,8 +236,8 @@ if (sequence_cmd) {
                 //close(p[1]);
                 close(0);
                 dup(p[0]);
-                close(p[1]);
                 close(p[0]);
+                close(p[1]);
                 run_command(&buf[i + 1], nbuf - i + 1, pcp);
             }
 
