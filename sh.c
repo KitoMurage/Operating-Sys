@@ -138,9 +138,9 @@ void run_command(char *buf, int nbuf, int *pcp) {
             close(p[1]);
             dup(p[0]);
             close(p[0]);
-            //close(p[1]);
-            //run_command(&buf[we + 1], nbuf - we - 1, pcp);
-            exec(arguments[1], arguments);
+            
+            run_command(buf + numargs + 1, nbuf - numargs - 1, pcp);
+           
             fprintf(2, "Execution of pipe failed\n");
             exit(1);
 
