@@ -27,13 +27,24 @@ void run_command(char *buf, int nbuf, int *pcp) {
 
     char *arguments[10];
     int numargs = 0;
-    int ws = 1, we = 0;
-    int redirection_left = 0, redirection_right = 0;
-    char *file_name_l = 0, *file_name_r = 0;
-    int pipe_cmd = 0, sequence_cmd = 0;
-
+	
+    int ws = 1, 
+    int we = 0;
+	
+    int redirection_left = 0;
+    int redirection_right = 0;
+	
+    char *file_name_l = 0;
+    char *file_name_r = 0;
+	
+    int p[2];
+    int pipe_cmd = 0;
+	
+    int sequence_cmd = 0;
+   
+    int i = 0;
     /* Parse command character by character */
-    for (int i = 0; i < nbuf; i++) {
+    for (; i < nbuf; i++) {
         char c = buf[i];
 
         if (c == '\0' || c == '\n') {
@@ -123,7 +134,7 @@ void run_command(char *buf, int nbuf, int *pcp) {
             exit(2);
         }
     } else if (pipe_cmd) {
-        int p[2];
+        
         pipe(p);
         if (fork() == 0) {
             close(p[0]);
@@ -131,7 +142,7 @@ void run_command(char *buf, int nbuf, int *pcp) {
             //close(p[0]);
             close(p[1]);
             exec(arguments[0], arguments);
-            fprintf(2, "Execution of pipe failed\n");
+            fprintf(2, "Execution of left pipe failed\n");
             exit(1);
         }
 	if (fork() == 0) {
@@ -141,7 +152,7 @@ void run_command(char *buf, int nbuf, int *pcp) {
             
             run_command(buf + numargs + 1, nbuf - numargs - 1, pcp);
            
-            fprintf(2, "Execution of pipe failed\n");
+            fprintf(2, "Execution of right pipe failed\n");
             exit(1);
 
         }
