@@ -1,1 +1,199 @@
 
+__attribute__((noreturn))
+void run_command(char *buf, int nbuf, int *pcp) {
+    /* Useful data structures and flags. */
+    char *arguments[10];
+    int numargs = 0;
+    int ws = 1;
+    int we = 0;
+
+    int redirection_left = 0;
+    int redirection_right = 0;
+    char *file_name_l = NULL;
+    char *file_name_r = NULL;
+
+    int pipe_cmd = 0;
+    int p[2];
+
+    int sequence_cmd = 0;
+
+    int i = 0;
+
+    printf("Debug: command received: %s\n", buf);
+
+    /* Parse the command character by character. */
+    for (; i < nbuf; i++) {
+        char c = buf[i];
+
+        if (c == '\0' || c == '\n') {
+            if (!ws) {
+                buf[i] = '\0';
+                arguments[numargs++] = &buf[we];
+            }
+            break;
+        }
+
+        if (!(redirection_left || redirection_right)) {
+            switch (c) {
+                case ';':
+                    buf[i] = '\0';
+                    sequence_cmd = 1;
+                    break;
+
+                case '|':
+                    pipe_cmd = 1;
+                    break;
+
+                case '<':
+                    redirection_left = 1;
+                    buf[i] = '\0';
+                    file_name_l = &buf[i + 1];
+                    break;
+
+                case '>':
+                    redirection_right = 1;
+                    buf[i] = '\0';
+                    file_name_r = &buf[i + 1];
+                    break;
+
+                default:
+                    if (c != ' ' && c != '\t' && c != '\n') {
+                        if (ws) {
+                            ws = 0;
+                            we = i;
+                        }
+                    } else {
+                        if (!ws) {
+                            buf[i] = '\0';
+                            arguments[numargs++] = &buf[we];
+                            ws = 1;
+                        }
+                    }
+                    break;
+            }
+        } else {
+            /* Redirection command. Capture the file names. */
+            if (c == '<') {
+                redirection_left = 1;
+                buf[i] = '\0';
+                file_name_l = &buf[i + 1];
+            } else if (c == '>') {
+                redirection_right = 1;
+                buf[i] = '\0';
+                file_name_r = &buf[i + 1];
+            }
+        }
+    }
+
+    if (numargs > 0) {
+        for (int k = 0; k < numargs; k++) {
+            fprintf(1, "Arg[%d]: %s\n", k, arguments[k]);
+        }
+    } else {
+        fprintf(1, "No Args\n");
+    }
+
+    /* Handle pipe command */
+    if (pipe_cmd) {
+        pipe(p);
+        int pid = getpid();
+
+        printf("Debug (pid %d): Pipe setup complete. Left command: %s\n", pid, arguments[0]);
+
+        if (fork() == 0) {
+            close(p[0]);
+            close(1);
+            dup(p[1]);
+            close(p[1]);
+
+            exec(arguments[0], arguments);
+            fprintf(2, "exec %s failed\n", arguments[0]);
+            exit(1);
+        }
+
+        char *right_cmd = buf + i + 1;
+        while (*right_cmd == ' ') right_cmd++;
+
+        numargs = 0;
+        for (int j = 0; right_cmd[j] != '\0'; j++) {
+            if (right_cmd[j] != ' ' && ws) {
+                arguments[numargs++] = right_cmd + j;
+                ws = 0;
+            } else if (right_cmd[j] == ' ' || right_cmd[j] == '\0') {
+                ws = 1;
+                right_cmd[j] = '\0';
+            }
+        }
+
+        printf("Debug (Parent, pid %d): Parsed right command: %s\n", getpid(), right_cmd);
+        if (fork() == 0) {
+            close(p[1]);
+            close(0);
+            dup(p[0]);
+            close(p[0]);
+
+            run_command(right_cmd, nbuf - (right_cmd - buf), pcp);
+        }
+
+        close(p[0]);
+        close(p[1]);
+        wait(0);
+        wait(0);
+    } else {
+        if (sequence_cmd) {
+            sequence_cmd = 0;
+            if (fork() != 0) {
+                wait(0);
+                run_command(&buf[i + 1], nbuf - i - 1, pcp);
+            } else {
+                exec(arguments[0], arguments);
+                fprintf(2, "Sequence command execution failed\n");
+                exit(1);
+            }
+        }
+
+        /* Handle redirection */
+        if (redirection_left) {
+            int fd = open(file_name_l, O_RDONLY);
+            if (fd < 0) {
+                fprintf(2, "Error opening input file: %s\n", file_name_l);
+                exit(1);
+            }
+            close(0);
+            dup(fd);
+            close(fd);
+        }
+
+        if (redirection_right) {
+            int fd = open(file_name_r, O_WRONLY | O_CREATE);
+            if (fd < 0) {
+                fprintf(2, "Error opening output file: %s\n", file_name_r);
+                exit(1);
+            }
+            close(1);
+            dup(fd);
+            close(fd);
+        }
+
+        if (numargs > 0 && strcmp(arguments[0], "cd") == 0) {
+            if (numargs < 2) {
+                fprintf(2, "cd: no such file or directory\n");
+            } else {
+                write(pcp[1], arguments[1], strlen(arguments[1]) + 1);
+                fprintf(1, "Changed dir to: %s\n", arguments[1]);
+            }
+            exit(2);
+        } else {
+            int pid = fork();
+            if (pid == 0) {
+                exec(arguments[0], arguments);
+                fprintf(2, "exec %s failed\n", arguments[0]);
+                exit(1);
+            } else {
+                wait(0);
+            }
+        }
+    }
+
+    exit(0);
+}
