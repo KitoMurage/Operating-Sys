@@ -28,7 +28,7 @@ void run_command(char *buf, int nbuf, int *pcp) {
     char *arguments[10];
     int numargs = 0;
 	
-    int ws = 1, 
+    int ws = 1;
     int we = 0;
 	
     int redirection_left = 0;
