@@ -1,6 +1,10 @@
 #include "kernel/types.h"
 #include "user/user.h"
 #include "kernel/fcntl.h"
+>>> echo h; ls
+h ls z��#�
+ q���&�N�V����   ��&�N�V����
+h ls
 
 /* Read a line of characters from stdin. */
 int getcmd(char *buf, int nbuf) {
